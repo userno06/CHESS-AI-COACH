@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"
+    />
+
+    <meta name="theme-color" content="#101010" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="ChessCoach" />
+    <meta
+      name="description"
+      content="ChessCoach AI — an AI chess coach that thinks out loud, flags hanging pieces before you move, and explains every decision like a grandmaster would."
+    />
+
+    <title>Chess Coach AI</title>
+
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>♞</text></svg>" />
+
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body>
+    <!-- =====================================
+         APP
+    ====================================== -->
+
+    <div class="app">
+      <!-- =================================
+             TOP NAVIGATION
+        ================================== -->
+
+      <header class="navbar">
+        <div class="brand">
+          <div class="brand-icon">♞</div>
+
+          <div>
+            <h1>CHESS<span>COACH</span></h1>
+
+            <p>AI TRAINING SYSTEM</p>
+          </div>
+        </div>
+
+        <div class="nav-right">
+          <div class="nav-status">
+            <span class="engine-indicator" id="engineIndicator"></span>
+
+            <span id="engineStatus"> ENGINE STARTING </span>
+
+            <span id="depthIndicator" class="depth-indicator"></span>
+          </div>
+
+          <div class="nav-buttons">
+            <button
+              id="openingsButton"
+              class="icon-button"
+              type="button"
+              aria-haspopup="dialog"
+              aria-controls="openingsModal"
+              aria-label="Opening trainer"
+              title="Opening trainer"
+            >
+              📖
+            </button>
+
+            <button
+              id="soundToggle"
+              class="icon-button"
+              type="button"
+              aria-pressed="true"
+              aria-label="Toggle sound"
+              title="Toggle sound"
+            >
+              <span class="icon-on">🔊</span>
+              <span class="icon-off">🔇</span>
+            </button>
+
+            <button
+              id="settingsButton"
+              class="icon-button"
+              type="button"
+              aria-haspopup="dialog"
+              aria-controls="settingsModal"
+              aria-label="Coach settings"
+              title="Coach settings"
+            >
+              ⚙
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- =================================
+             MAIN
+        ================================== -->
+
+      <main class="main-layout">
+        <!-- =================================
+                 LEFT PANEL
+            ================================== -->
+
+        <aside class="left-panel">
+          <!-- PLAYER CARD -->
+
+          <div class="player-card">
+            <div class="player-avatar">♙</div>
+
+            <div class="player-card-info">
+              <span class="small-label"> PLAYER </span>
+
+              <h2>YOU</h2>
+            </div>
+
+            <div
+              class="captured-tray"
+              id="capturedByPlayer"
+              aria-label="Pieces you have captured"
+            ></div>
+          </div>
+
+          <!-- EVALUATION -->
+
+          <div class="evaluation-card">
+            <div class="section-heading">
+              <span> POSITION </span>
+
+              <span id="evaluationValue" class="evaluation-value"> 0.00 </span>
+            </div>
+
+            <div class="evaluation-bar">
+              <div id="evaluationFill" class="evaluation-fill"></div>
+            </div>
+
+            <div class="evaluation-labels">
+              <span> BLACK </span>
+
+              <span id="materialDiff" class="material-diff"></span>
+
+              <span> WHITE </span>
+            </div>
+          </div>
+
+          <!-- COACH -->
+
+          <div class="coach-card">
+            <div class="coach-header">
+              <div class="coach-icon">🧠</div>
+
+              <div>
+                <span class="small-label"> YOUR COACH </span>
+
+                <h2 id="coachName">MASTER AI</h2>
+              </div>
+            </div>
+
+            <div id="coachMessage" class="coach-message" role="status" aria-live="polite">
+              <div class="message-label">COACH</div>
+
+              <h3>Welcome, player.</h3>
+
+              <p>
+                I'm your chess coach. I'll calculate your moves and explain the
+                ideas behind them — the way a grandmaster would think out loud.
+              </p>
+            </div>
+          </div>
+
+          <!-- BEFORE-YOU-MOVE CHECKLIST -->
+
+          <div class="checklist-card" id="checklistCard">
+            <div class="section-heading">
+              <span> SCAN THE POSITION </span>
+
+              <span class="checklist-turn-tag" id="checklistTurnTag"></span>
+            </div>
+
+            <ul id="checklistList" class="checklist-list">
+              <li class="checklist-empty">Waiting for the engine to start…</li>
+            </ul>
+          </div>
+
+          <!-- COACH BUTTONS -->
+
+          <div class="coach-actions">
+            <button id="hintButton" class="primary-button">
+              <span>💡</span>
+              FIND A MOVE
+            </button>
+          </div>
+        </aside>
+
+        <!-- =================================
+                 CENTER BOARD
+            ================================== -->
+
+        <section class="board-section">
+          <!-- GAME HEADER -->
+
+          <div class="game-header">
+            <div>
+              <span class="small-label"> TRAINING MATCH </span>
+
+              <h2>
+                HUMAN
+                <span>VS</span>
+                AI
+              </h2>
+            </div>
+
+            <div class="status" id="statusPill">
+              <span class="status-dot"></span>
+
+              YOUR TURN
+            </div>
+          </div>
+
+          <!-- BOARD -->
+
+          <div class="board-wrapper">
+            <div id="chessBoard" class="chess-board"></div>
+
+            <svg
+              id="boardArrows"
+              class="board-arrows"
+              viewBox="0 0 8 8"
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            ></svg>
+          </div>
+
+          <!-- BOARD CONTROLS -->
+
+          <div class="board-controls">
+            <button id="undoButton">
+              ↶
+
+              <span> UNDO </span>
+            </button>
+
+            <button id="resetButton">
+              ↻
+
+              <span> NEW GAME </span>
+            </button>
+
+            <button id="flipButton">
+              ⇅
+
+              <span> FLIP </span>
+            </button>
+
+            <button id="pgnButton">
+              ⧉
+
+              <span> COPY PGN </span>
+            </button>
+          </div>
+        </section>
+
+        <!-- =================================
+                 RIGHT PANEL
+            ================================== -->
+
+        <aside class="right-panel">
+          <!-- AI CARD -->
+
+          <div class="ai-card">
+            <div class="player-card">
+              <div class="ai-avatar">♟</div>
+
+              <div class="player-card-info">
+                <span class="small-label"> OPPONENT </span>
+
+                <h2 id="opponentName">STOCKFISH</h2>
+              </div>
+
+              <div
+                class="captured-tray"
+                id="capturedByAI"
+                aria-label="Pieces the AI has captured"
+              ></div>
+            </div>
+
+            <div class="ai-depth">
+              <span> DIFFICULTY </span>
+
+              <strong id="difficultyLabel"> CLUB PLAYER </strong>
+            </div>
+          </div>
+
+          <!-- MOVE HISTORY -->
+
+          <div class="history-card">
+            <details class="panel-details" open>
+              <summary class="history-header">
+                <div>
+                  <span class="small-label"> GAME LOG </span>
+
+                  <h2>MOVE HISTORY</h2>
+                </div>
+
+                <span id="moveCount" class="move-count"> 0 MOVES </span>
+              </summary>
+
+              <div id="moveHistory" class="move-history">
+                <div class="empty-history">Game hasn't started yet.</div>
+              </div>
+            </details>
+          </div>
+
+          <!-- TRAINING PRINCIPLES -->
+
+          <div class="principles-card">
+            <details class="panel-details" open>
+              <summary class="principles-summary">
+                <span class="small-label"> COACH PRINCIPLES </span>
+
+                <h2>THINK LIKE MAGNUS</h2>
+              </summary>
+
+              <div class="principle">
+                <span> 01 </span>
+
+                <div>
+                  <strong> CHECKS </strong>
+
+                  <p>Look for forcing checks.</p>
+                </div>
+              </div>
+
+              <div class="principle">
+                <span> 02 </span>
+
+                <div>
+                  <strong> CAPTURES </strong>
+
+                  <p>Look for tactical captures.</p>
+                </div>
+              </div>
+
+              <div class="principle">
+                <span> 03 </span>
+
+                <div>
+                  <strong> THREATS </strong>
+
+                  <p>Ask what your opponent wants.</p>
+                </div>
+              </div>
+
+              <div class="principle">
+                <span> 04 </span>
+
+                <div>
+                  <strong> PROPHYLAXIS </strong>
+
+                  <p>Stop your opponent's plan before it starts.</p>
+                </div>
+              </div>
+            </details>
+          </div>
+        </aside>
+      </main>
+
+      <!-- =====================================
+             FOOTER
+        ====================================== -->
+
+      <footer>
+        <span> CHESSCOACH AI </span>
+
+        <span> TRAIN • CALCULATE • IMPROVE </span>
+      </footer>
+    </div>
+
+    <!-- =====================================
+         PROMOTION MODAL
+    ====================================== -->
+
+    <dialog id="promotionModal" class="modal promotion-modal">
+      <div class="modal-inner">
+        <span class="small-label">PROMOTE YOUR PAWN</span>
+        <h2>Choose a piece</h2>
+
+        <div class="promotion-choices" id="promotionChoices">
+          <button class="promotion-choice" type="button" data-piece="q">♕<span>Queen</span></button>
+          <button class="promotion-choice" type="button" data-piece="r">♖<span>Rook</span></button>
+          <button class="promotion-choice" type="button" data-piece="b">♗<span>Bishop</span></button>
+          <button class="promotion-choice" type="button" data-piece="n">♘<span>Knight</span></button>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- =====================================
+         SETTINGS MODAL
+    ====================================== -->
+
+    <dialog id="settingsModal" class="modal settings-modal">
+      <div class="modal-inner">
+        <div class="modal-header">
+          <div>
+            <span class="small-label">COACH SETTINGS</span>
+            <h2>Game settings</h2>
+          </div>
+
+          <button class="modal-close" id="settingsClose" type="button" aria-label="Close settings">✕</button>
+        </div>
+
+        <p class="modal-hint">
+          Choosing a side starts a new game.
+        </p>
+
+        <div class="settings-section">
+          <span class="small-label">PLAY AS</span>
+
+          <div class="color-options" id="colorOptions" role="radiogroup" aria-label="Play as">
+            <button class="color-option" type="button" data-color="w" role="radio" aria-checked="true">
+              <span>♙</span>
+              White
+            </button>
+
+            <button class="color-option" type="button" data-color="b" role="radio" aria-checked="false">
+              <span>♟</span>
+              Black
+            </button>
+
+            <button class="color-option" type="button" data-color="random" role="radio" aria-checked="false">
+              <span>⚄</span>
+              Random
+            </button>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <span class="small-label">DIFFICULTY</span>
+
+          <p class="modal-hint">
+            This changes how hard Stockfish plays. The coach still analyzes every
+            move at full strength no matter what you pick.
+          </p>
+
+          <div class="skill-options" id="skillOptions" role="radiogroup" aria-label="Difficulty">
+            <button class="skill-option" type="button" data-skill="beginner" role="radio" aria-checked="false">
+              <strong>Beginner</strong>
+              <span>~1300 Elo · learning the pieces</span>
+            </button>
+
+            <button class="skill-option" type="button" data-skill="club" role="radio" aria-checked="false">
+              <strong>Club Player</strong>
+              <span>~1600 Elo · solid fundamentals</span>
+            </button>
+
+            <button class="skill-option" type="button" data-skill="expert" role="radio" aria-checked="false">
+              <strong>Expert</strong>
+              <span>~2200 Elo · sharp and punishing</span>
+            </button>
+
+            <button class="skill-option" type="button" data-skill="magnus" role="radio" aria-checked="false">
+              <strong>Magnus Mode</strong>
+              <span>Full strength · no mercy</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- =====================================
+         OPENINGS MODAL
+    ====================================== -->
+
+    <dialog id="openingsModal" class="modal openings-modal">
+      <div class="modal-inner">
+        <div class="modal-header">
+          <div>
+            <span class="small-label">OPENING TRAINER</span>
+            <h2>Learn a repertoire</h2>
+          </div>
+
+          <button class="modal-close" id="openingsClose" type="button" aria-label="Close opening trainer">✕</button>
+        </div>
+
+        <p class="modal-hint">
+          Pick a line and I'll guide you through it move by move, explaining the
+          idea behind each one. Play something else at any point and I'll switch
+          back to normal analysis.
+        </p>
+
+        <div class="openings-group">
+          <span class="small-label">PLAY AS WHITE</span>
+
+          <div class="opening-list" id="openingsWhiteList"></div>
+        </div>
+
+        <div class="openings-group">
+          <span class="small-label">PLAY AS BLACK — COUNTER-OPENINGS</span>
+
+          <div class="opening-list" id="openingsBlackList"></div>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- =====================================
+         GAME OVER MODAL
+    ====================================== -->
+
+    <dialog id="gameOverModal" class="modal gameover-modal">
+      <div class="modal-inner">
+        <span class="small-label" id="gameOverTag">GAME OVER</span>
+        <h2 id="gameOverTitle">Checkmate</h2>
+        <p id="gameOverMessage"></p>
+
+        <div class="modal-actions">
+          <button class="primary-button" id="gameOverNewGame" type="button">
+            <span>↻</span>
+            NEW GAME
+          </button>
+
+          <button class="ghost-button" id="gameOverReview" type="button">
+            REVIEW BOARD
+          </button>
+        </div>
+      </div>
+    </dialog>
+
+    <!-- =====================================
+         CHESS.JS
+    ====================================== -->
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+
+    <!-- =====================================
+         STOCKFISH
+         Loaded at runtime as a Web Worker inside
+         script.js (initializeEngine) — the engine
+         file must run in a worker, not as a plain
+         page script, so there is no <script> tag
+         for it here.
+    ====================================== -->
+
+    <!-- =====================================
+         APPLICATION
+    ====================================== -->
+
+    <script src="script.js"></script>
+  </body>
+</html>
