@@ -21,7 +21,10 @@
 
     <title>Chess Coach 🐾</title>
 
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.85em%22 font-size=%2290%22>🐾</text></svg>" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.85em%22 font-size=%2290%22>🐾</text></svg>"
+    />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -191,7 +194,12 @@
               </div>
             </div>
 
-            <div id="coachMessage" class="coach-message" role="status" aria-live="polite">
+            <div
+              id="coachMessage"
+              class="coach-message"
+              role="status"
+              aria-live="polite"
+            >
               <div class="message-label">COACH</div>
 
               <h3>Welcome, player.</h3>
@@ -201,20 +209,6 @@
                 every one, the way a very opinionated grandmaster kitten would.
               </p>
             </div>
-          </div>
-
-          <!-- BEFORE-YOU-MOVE CHECKLIST -->
-
-          <div class="checklist-card" id="checklistCard">
-            <div class="section-heading">
-              <span> SCAN THE POSITION </span>
-
-              <span class="checklist-turn-tag" id="checklistTurnTag"></span>
-            </div>
-
-            <ul id="checklistList" class="checklist-list">
-              <li class="checklist-empty">Waiting for the engine to start…</li>
-            </ul>
           </div>
 
           <!-- COACH BUTTONS -->
@@ -345,58 +339,6 @@
               </div>
             </details>
           </div>
-
-          <!-- TRAINING PRINCIPLES -->
-
-          <div class="principles-card">
-            <details class="panel-details" open>
-              <summary class="principles-summary">
-                <span class="small-label"> COACH PRINCIPLES </span>
-
-                <h2>THINK LIKE MAGNUS</h2>
-              </summary>
-
-              <div class="principle">
-                <span> 01 </span>
-
-                <div>
-                  <strong> CHECKS </strong>
-
-                  <p>Look for forcing checks.</p>
-                </div>
-              </div>
-
-              <div class="principle">
-                <span> 02 </span>
-
-                <div>
-                  <strong> CAPTURES </strong>
-
-                  <p>Look for tactical captures.</p>
-                </div>
-              </div>
-
-              <div class="principle">
-                <span> 03 </span>
-
-                <div>
-                  <strong> THREATS </strong>
-
-                  <p>Ask what your opponent wants.</p>
-                </div>
-              </div>
-
-              <div class="principle">
-                <span> 04 </span>
-
-                <div>
-                  <strong> PROPHYLAXIS </strong>
-
-                  <p>Stop your opponent's plan before it starts.</p>
-                </div>
-              </div>
-            </details>
-          </div>
         </aside>
       </main>
 
@@ -405,9 +347,9 @@
         ====================================== -->
 
       <footer>
-        <span> CHESSCOACH AI </span>
+        <span> CHESSCOACH 🐾 </span>
 
-        <span> TRAIN • CALCULATE • IMPROVE </span>
+        <span> PURR • PLAY • IMPROVE </span>
       </footer>
     </div>
 
@@ -421,10 +363,18 @@
         <h2>Choose a piece</h2>
 
         <div class="promotion-choices" id="promotionChoices">
-          <button class="promotion-choice" type="button" data-piece="q">♕<span>Queen</span></button>
-          <button class="promotion-choice" type="button" data-piece="r">♖<span>Rook</span></button>
-          <button class="promotion-choice" type="button" data-piece="b">♗<span>Bishop</span></button>
-          <button class="promotion-choice" type="button" data-piece="n">♘<span>Knight</span></button>
+          <button class="promotion-choice" type="button" data-piece="q">
+            ♕<span>Queen</span>
+          </button>
+          <button class="promotion-choice" type="button" data-piece="r">
+            ♖<span>Rook</span>
+          </button>
+          <button class="promotion-choice" type="button" data-piece="b">
+            ♗<span>Bishop</span>
+          </button>
+          <button class="promotion-choice" type="button" data-piece="n">
+            ♘<span>Knight</span>
+          </button>
         </div>
       </div>
     </dialog>
@@ -441,28 +391,56 @@
             <h2>Game settings</h2>
           </div>
 
-          <button class="modal-close" id="settingsClose" type="button" aria-label="Close settings">✕</button>
+          <button
+            class="modal-close"
+            id="settingsClose"
+            type="button"
+            aria-label="Close settings"
+          >
+            ✕
+          </button>
         </div>
 
-        <p class="modal-hint">
-          Choosing a side starts a new game.
-        </p>
+        <p class="modal-hint">Choosing a side starts a new game.</p>
 
         <div class="settings-section">
           <span class="small-label">PLAY AS</span>
 
-          <div class="color-options" id="colorOptions" role="radiogroup" aria-label="Play as">
-            <button class="color-option" type="button" data-color="w" role="radio" aria-checked="true">
+          <div
+            class="color-options"
+            id="colorOptions"
+            role="radiogroup"
+            aria-label="Play as"
+          >
+            <button
+              class="color-option"
+              type="button"
+              data-color="w"
+              role="radio"
+              aria-checked="true"
+            >
               <span>♙</span>
               White
             </button>
 
-            <button class="color-option" type="button" data-color="b" role="radio" aria-checked="false">
+            <button
+              class="color-option"
+              type="button"
+              data-color="b"
+              role="radio"
+              aria-checked="false"
+            >
               <span>♟</span>
               Black
             </button>
 
-            <button class="color-option" type="button" data-color="random" role="radio" aria-checked="false">
+            <button
+              class="color-option"
+              type="button"
+              data-color="random"
+              role="radio"
+              aria-checked="false"
+            >
               <span>⚄</span>
               Random
             </button>
@@ -473,27 +451,56 @@
           <span class="small-label">DIFFICULTY</span>
 
           <p class="modal-hint">
-            This changes how hard Stockfish plays. The coach still analyzes every
-            move at full strength no matter what you pick.
+            This changes how hard Stockfish plays. The coach still analyzes
+            every move at full strength no matter what you pick.
           </p>
 
-          <div class="skill-options" id="skillOptions" role="radiogroup" aria-label="Difficulty">
-            <button class="skill-option" type="button" data-skill="beginner" role="radio" aria-checked="false">
+          <div
+            class="skill-options"
+            id="skillOptions"
+            role="radiogroup"
+            aria-label="Difficulty"
+          >
+            <button
+              class="skill-option"
+              type="button"
+              data-skill="beginner"
+              role="radio"
+              aria-checked="false"
+            >
               <strong>Beginner</strong>
               <span>~1300 Elo · learning the pieces</span>
             </button>
 
-            <button class="skill-option" type="button" data-skill="club" role="radio" aria-checked="false">
+            <button
+              class="skill-option"
+              type="button"
+              data-skill="club"
+              role="radio"
+              aria-checked="false"
+            >
               <strong>Club Player</strong>
               <span>~1600 Elo · solid fundamentals</span>
             </button>
 
-            <button class="skill-option" type="button" data-skill="expert" role="radio" aria-checked="false">
+            <button
+              class="skill-option"
+              type="button"
+              data-skill="expert"
+              role="radio"
+              aria-checked="false"
+            >
               <strong>Expert</strong>
               <span>~2200 Elo · sharp and punishing</span>
             </button>
 
-            <button class="skill-option" type="button" data-skill="magnus" role="radio" aria-checked="false">
+            <button
+              class="skill-option"
+              type="button"
+              data-skill="magnus"
+              role="radio"
+              aria-checked="false"
+            >
               <strong>Magnus Mode</strong>
               <span>Full strength · no mercy</span>
             </button>
@@ -514,7 +521,14 @@
             <h2>Learn a repertoire</h2>
           </div>
 
-          <button class="modal-close" id="openingsClose" type="button" aria-label="Close opening trainer">✕</button>
+          <button
+            class="modal-close"
+            id="openingsClose"
+            type="button"
+            aria-label="Close opening trainer"
+          >
+            ✕
+          </button>
         </div>
 
         <p class="modal-hint">
@@ -572,7 +586,14 @@
             <h2>How you played</h2>
           </div>
 
-          <button class="modal-close" id="reviewClose" type="button" aria-label="Close review">✕</button>
+          <button
+            class="modal-close"
+            id="reviewClose"
+            type="button"
+            aria-label="Close review"
+          >
+            ✕
+          </button>
         </div>
 
         <div class="review-summary" id="reviewSummary"></div>
