@@ -150,7 +150,18 @@ button {
 
   justify-content: space-between;
 
-  gap: 16px;
+  /*
+    BUG FIX (title hidden behind icon buttons on narrow phones):
+    neither side of the navbar could shrink below its content
+    width and the row never wrapped, so once brand + status +
+    icon buttons stopped fitting, the title text simply rendered
+    underneath the icon buttons instead of making room for them.
+    flex-wrap is the safety net — on any width too narrow for one
+    row, nav-right now drops to its own row instead of overlapping.
+  */
+  flex-wrap: wrap;
+
+  gap: 10px 16px;
 
   padding: 10px 28px;
 
@@ -173,6 +184,9 @@ button {
   gap: 13px;
 
   min-width: 0;
+
+  /* so this can shrink/truncate instead of pushing nav-right off */
+  flex: 1 1 auto;
 }
 
 .brand-icon {
@@ -195,6 +209,10 @@ button {
   font-size: 22px;
 }
 
+.brand > div:last-child {
+  min-width: 0;
+}
+
 .brand h1 {
   font-size: clamp(16px, 1.3vw, 20px);
 
@@ -203,6 +221,10 @@ button {
   font-weight: 700;
 
   white-space: nowrap;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
 }
 
 .brand h1 span {
@@ -219,6 +241,10 @@ button {
   opacity: 0.7;
 
   white-space: nowrap;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
 }
 
 .nav-right {
@@ -329,7 +355,10 @@ button {
 
   display: grid;
 
-  grid-template-columns: minmax(280px, 350px) minmax(460px, 680px) minmax(280px, 350px);
+  grid-template-columns: minmax(280px, 350px) minmax(460px, 680px) minmax(
+      280px,
+      350px
+    );
 
   gap: clamp(16px, 1.8vw, 28px);
 
@@ -834,6 +863,23 @@ button:disabled:hover {
   box-shadow: 0 20px 50px rgba(120, 85, 50, 0.28);
 
   position: relative;
+
+  /*
+    BUG FIX (board distortion / clipped files):
+    lets .piece below size itself off the board's OWN
+    rendered width (cqw) instead of the viewport's width
+    (vw). Those two used to disagree whenever the board's
+    size was capped by something other than viewport width
+    (a 3-column desktop layout, iPad landscape, short
+    landscape phones using dvh, etc.) — pieces would render
+    wider than their square, and because 1fr grid tracks
+    won't shrink below their content, the whole 8x8 grid
+    stretched past this wrapper and got clipped by the
+    overflow: hidden above, hiding whole files of the board.
+  */
+  container-type: inline-size;
+
+  container-name: board;
 }
 
 .chess-board {
@@ -843,9 +889,18 @@ button:disabled:hover {
 
   display: grid;
 
-  grid-template-columns: repeat(8, 1fr);
+  /*
+    BUG FIX: minmax(0, 1fr) — not just 1fr. A bare `1fr` track
+    has an implicit minimum size of `auto` (its content's
+    natural size), so an oversized piece glyph could still
+    force a column wider than its fair 1/8 share and overflow
+    the board. minmax(0, 1fr) is a hard cap: columns/rows
+    always split the available space evenly and never grow
+    past it, so the board can no longer stretch or lose files.
+  */
+  grid-template-columns: repeat(8, minmax(0, 1fr));
 
-  grid-template-rows: repeat(8, 1fr);
+  grid-template-rows: repeat(8, minmax(0, 1fr));
 
   user-select: none;
 }
@@ -963,7 +1018,24 @@ button:disabled:hover {
 
   font-family: "Arial Unicode MS", "Segoe UI Symbol", serif;
 
-  font-size: clamp(32px, 6vw, 67px);
+  /*
+    BUG FIX: fallback for browsers without container query
+    unit support. Kept deliberately small on the vw side so
+    that IF this rule is the one that applies, it errs toward
+    too-small rather than overflowing the square again.
+  */
+  font-size: clamp(20px, 5vw, 60px);
+
+  /*
+    Real fix: size off the board's own rendered width (see
+    container-type on .board-wrapper) rather than the
+    viewport's. 11cqw ≈ 88% of one of the 8 equal columns,
+    so pieces now always match their square no matter what
+    constrained the board's pixel size. Browsers without
+    container-query support simply ignore this line and keep
+    the fallback above.
+  */
+  font-size: clamp(20px, 11cqw, 72px);
 
   line-height: 1;
 
@@ -1169,9 +1241,21 @@ button:disabled:hover {
 .history-header {
   display: flex;
 
+  flex-wrap: wrap;
+
   justify-content: space-between;
 
   align-items: flex-end;
+
+  /*
+    BUG FIX: "MOVE HISTORY" and the "N MOVES" badge were
+    rendering flush against each other with no visible gap on
+    narrow cards. A minimum gap plus wrap is a robust fix
+    either way — there's always breathing room, and if the
+    two truly don't fit side by side the badge now drops to
+    its own line instead of touching the title.
+  */
+  gap: 4px 10px;
 
   margin-bottom: 0;
 }
@@ -1808,24 +1892,42 @@ footer {
     gap: 18px;
   }
 
-  .board-section {
-    grid-column: 1 / -1;
-  }
-
-  .board-wrapper {
-    max-width: min(520px, 100%, 55vh);
-  }
-
+  /*
+    BUG FIX (dead empty column): previously only .board-section
+    had an explicit grid placement. Grid auto-placement then
+    packed .left-panel into row 1 col 1, .board-section into its
+    own row (it needs both columns), and — because the sparse
+    auto-placement cursor never backtracks — .right-panel landed
+    in row 3 col 1 too, leaving all of column 2 empty for the
+    entire height of the page. Explicit placement puts the two
+    side panels next to each other above the board, using the
+    width instead of wasting it.
+  */
   .left-panel {
+    grid-column: 1;
+    grid-row: 1;
+
     display: flex;
     flex-direction: column;
     gap: 14px;
   }
 
   .right-panel {
+    grid-column: 2;
+    grid-row: 1;
+
     display: flex;
     flex-direction: column;
     gap: 14px;
+  }
+
+  .board-section {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .board-wrapper {
+    max-width: min(520px, 100%, 55vh);
   }
 
   .move-history {
