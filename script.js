@@ -28,6 +28,22 @@ let engineThinking = false;
 
 let analysisStage = null;
 
+/*
+    BUG FIX (see fix notes): tracks whether the engine currently has
+    a "go" search in flight. When a new search needs to start while
+    one is already running, we must send "stop" and WAIT for that
+    search's "bestmove" before sending the next "position"/"go" —
+    sending them immediately (the old behavior) is a UCI protocol
+    violation and lets a stale "bestmove" from the interrupted
+    search arrive AFTER analysisStage has already moved on to the
+    next stage, where it gets misinterpreted as the reply to the
+    NEW stage. requestEngineSearch() below is the only place that
+    should ever send "position"/"go" to the engine.
+*/
+let searchActive = false;
+
+let pendingSearchAfterStop = null;
+
 // ======================================================
 // EVALUATION
 // ======================================================
@@ -1364,6 +1380,40 @@ function configureEngineForOpponent() {
 }
 
 // ======================================================
+// ENGINE SEARCH REQUEST (race-condition-safe)
+// ======================================================
+
+/*
+    BUG FIX: single choke point for starting a new engine search.
+    If a search is already running, we stop it and defer the new
+    request until that search's "bestmove" comes back (and gets
+    discarded) — we never send a new "position"/"go" while an old
+    one might still reply. This is what makeAIMove(),
+    analyzePlayerDecision(), the "before"->"after" transition in
+    handleBestMove(), and the hint button now use instead of
+    calling engine.postMessage(...) directly.
+*/
+function requestEngineSearch(fen, depth, nextStage) {
+  const start = () => {
+    analysisStage = nextStage;
+
+    searchActive = true;
+
+    engine.postMessage(`position fen ${fen}`);
+
+    engine.postMessage(`go depth ${depth}`);
+  };
+
+  if (searchActive) {
+    pendingSearchAfterStop = start;
+
+    engine.postMessage("stop");
+  } else {
+    start();
+  }
+}
+
+// ======================================================
 // ENGINE MESSAGE HANDLER
 // ======================================================
 
@@ -1442,6 +1492,26 @@ function handleEngineMessage(message) {
 // ======================================================
 
 function handleBestMove(message) {
+  searchActive = false;
+
+  /*
+      BUG FIX: this "bestmove" might be the tail end of a search we
+      already asked to stop because something newer wants the
+      engine. If so, it belongs to the OLD request, not to whatever
+      analysisStage currently says — discard it and kick off the
+      queued request instead of letting it fall through to the
+      stage-matching logic below.
+  */
+  if (pendingSearchAfterStop) {
+    const next = pendingSearchAfterStop;
+
+    pendingSearchAfterStop = null;
+
+    next();
+
+    return;
+  }
+
   const parts = message.trim().split(/\s+/);
 
   const move = parts[1];
@@ -1471,15 +1541,9 @@ function handleBestMove(message) {
 
     deepestDepth = -1;
 
-    analysisStage = "after";
-
     configureEngineFullStrength();
 
-    engine.postMessage("stop");
-
-    engine.postMessage(`position fen ${game.fen()}`);
-
-    engine.postMessage(`go depth ${COACH_ANALYSIS_DEPTH}`);
+    requestEngineSearch(game.fen(), COACH_ANALYSIS_DEPTH, "after");
 
     return;
   }
@@ -1673,16 +1737,10 @@ function analyzePlayerDecision(move) {
 
   deepestDepth = -1;
 
-  analysisStage = "before";
-
   configureEngineFullStrength();
 
-  engine.postMessage("stop");
-
-  engine.postMessage(`position fen ${positionBeforeMove}`);
-
   // Use shallow depth just to get best move quickly
-  engine.postMessage(`go depth ${COACH_QUICK_DEPTH}`);
+  requestEngineSearch(positionBeforeMove, COACH_QUICK_DEPTH, "before");
 
   showCoachMessage(
     "Analyzing your move...",
@@ -1838,13 +1896,18 @@ function analyzeMoveCharacteristics(pMove, currentGame) {
     from: pMove.from,
     to: pMove.to,
     san: pMove.san,
-    captured: pMove.captured ? (PIECE_NAME[pMove.captured] || "piece") : null,
+    captured: pMove.captured ? PIECE_NAME[pMove.captured] || "piece" : null,
     capturedSymbol: pMove.captured || null,
     isCheck: pMove.san.indexOf("+") !== -1,
     isCheckmate: pMove.san.indexOf("#") !== -1,
-    isCastling: pMove.san.indexOf("O-O") !== -1 || (pMove.flags && (pMove.flags.indexOf("k") !== -1 || pMove.flags.indexOf("q") !== -1)),
+    isCastling:
+      pMove.san.indexOf("O-O") !== -1 ||
+      (pMove.flags &&
+        (pMove.flags.indexOf("k") !== -1 || pMove.flags.indexOf("q") !== -1)),
     isPromotion: Boolean(pMove.promotion),
-    promotionPiece: pMove.promotion ? (PIECE_NAME[pMove.promotion] || "queen") : null,
+    promotionPiece: pMove.promotion
+      ? PIECE_NAME[pMove.promotion] || "queen"
+      : null,
 
     // Strategic & Tactical assessments
     centralizes: false,
@@ -1871,7 +1934,10 @@ function analyzeMoveCharacteristics(pMove, currentGame) {
   // Development in opening
   const moveCount = currentGame.history().length;
   if (moveCount < 16) {
-    if ((pMove.color === "w" && fromRank === 1) || (pMove.color === "b" && fromRank === 8)) {
+    if (
+      (pMove.color === "w" && fromRank === 1) ||
+      (pMove.color === "b" && fromRank === 8)
+    ) {
       if (pMove.piece !== "p" && pMove.piece !== "k") {
         chars.develops = true;
       }
@@ -1902,10 +1968,14 @@ function describeMoveAction(chars) {
   }
 
   if (chars.isCastling) {
-    actions.push("tucks your king to safety and activates your rook with castling");
+    actions.push(
+      "tucks your king to safety and activates your rook with castling",
+    );
   } else {
     if (chars.captured) {
-      actions.push(`captures the opponent's ${chars.captured} on ${chars.to.toUpperCase()}`);
+      actions.push(
+        `captures the opponent's ${chars.captured} on ${chars.to.toUpperCase()}`,
+      );
     }
 
     if (chars.isPromotion) {
@@ -1917,14 +1987,22 @@ function describeMoveAction(chars) {
     }
 
     if (chars.develops) {
-      actions.push(`develops your ${chars.piece} to an active post on ${chars.to.toUpperCase()}`);
+      actions.push(
+        `develops your ${chars.piece} to an active post on ${chars.to.toUpperCase()}`,
+      );
     } else if (chars.centralizes && !chars.captured && !chars.isCheck) {
-      actions.push(`centralizes your ${chars.piece} on ${chars.to.toUpperCase()}`);
+      actions.push(
+        `centralizes your ${chars.piece} on ${chars.to.toUpperCase()}`,
+      );
     } else if (chars.activatesKing && !chars.isCheck) {
-      actions.push(`marches your king forward toward ${chars.to.toUpperCase()} for the endgame`);
+      actions.push(
+        `marches your king forward toward ${chars.to.toUpperCase()} for the endgame`,
+      );
     } else if (chars.pawnPush && !chars.captured && !chars.isPromotion) {
       if (chars.isCoreCenter) {
-        actions.push(`stakes an aggressive claim in the center on ${chars.to.toUpperCase()}`);
+        actions.push(
+          `stakes an aggressive claim in the center on ${chars.to.toUpperCase()}`,
+        );
       } else {
         actions.push(`advances your pawn to ${chars.to.toUpperCase()}`);
       }
@@ -1955,19 +2033,21 @@ function generateContextualExplanation(verdict, chars, pMove, bestMove, loss) {
       `Purr-fect calculation! <strong>${moveSan}</strong> ${actionText}.`,
       `Grandmaster instinct! <strong>${moveSan}</strong> ${actionText}, finding the engine's absolute #1 continuation.`,
       `Sharp play! <strong>${moveSan}</strong> ${actionText} — that's the cleanest, most punishing line on the board.`,
-      `Spot on! You found <strong>${moveSan}</strong>, exactly what the engine calculated as best.`
+      `Spot on! You found <strong>${moveSan}</strong>, exactly what the engine calculated as best.`,
     ];
     body = praiseOpeners[Math.floor(Math.random() * praiseOpeners.length)];
 
     if (chars.isCheckmate) {
       lessonHeader = "Game Winning Tactic:";
-      lessonText = "That's checkmate! Beautifully calculated sequence to conclude the battle.";
+      lessonText =
+        "That's checkmate! Beautifully calculated sequence to conclude the battle.";
     } else if (chars.captured) {
       lessonHeader = "Tactical Insight:";
       lessonText = `Winning the ${chars.captured} increases your material lead cleanly without allowing counterplay.`;
     } else if (chars.isCastling) {
       lessonHeader = "King Safety Principle:";
-      lessonText = "Castling removes your king from the vulnerable center and connects your rooks for the coming middlegame.";
+      lessonText =
+        "Castling removes your king from the vulnerable center and connects your rooks for the coming middlegame.";
     } else if (chars.develops) {
       lessonHeader = "Development Principle:";
       lessonText = `Developing pieces with purpose in the ${phase} is the fastest way to build an initiative.`;
@@ -2024,7 +2104,11 @@ function generateContextualExplanation(verdict, chars, pMove, bestMove, loss) {
   else if (verdict.name === "INACCURACY") {
     body = `A slight slip. <strong>${moveSan}</strong> ${actionText}, but it allows your opponent some breathing room (costing ~${loss.toFixed(2)} pawns).`;
 
-    if (chars.leavesHanging && pMove.postMoveHanging && pMove.postMoveHanging.length > 0) {
+    if (
+      chars.leavesHanging &&
+      pMove.postMoveHanging &&
+      pMove.postMoveHanging.length > 0
+    ) {
       const h = pMove.postMoveHanging[0];
       body += `<br><br>Watch out: your <strong>${PIECE_NAME[h.type]} on ${h.square.toUpperCase()}</strong> is left vulnerable to their ${PIECE_NAME[h.minAttackerType]}.`;
     }
@@ -2045,7 +2129,11 @@ function generateContextualExplanation(verdict, chars, pMove, bestMove, loss) {
   else if (verdict.name === "MISTAKE") {
     body = `Meowch! <strong>${moveSan}</strong> ${actionText} turns out to be a noticeable mistake giving up ~${loss.toFixed(2)} pawns.`;
 
-    if (chars.leavesHanging && pMove.postMoveHanging && pMove.postMoveHanging.length > 0) {
+    if (
+      chars.leavesHanging &&
+      pMove.postMoveHanging &&
+      pMove.postMoveHanging.length > 0
+    ) {
       const h = pMove.postMoveHanging[0];
       body += `<br><br>⚠️ Tactical red flag: your <strong>${PIECE_NAME[h.type]} on ${h.square.toUpperCase()}</strong> is under-defended and vulnerable!`;
     }
@@ -2066,7 +2154,11 @@ function generateContextualExplanation(verdict, chars, pMove, bestMove, loss) {
   else {
     body = `Cat-astrophe! <strong>${moveSan}</strong> ${actionText} is a critical blunder costing ~${loss.toFixed(2)} pawns.`;
 
-    if (chars.leavesHanging && pMove.postMoveHanging && pMove.postMoveHanging.length > 0) {
+    if (
+      chars.leavesHanging &&
+      pMove.postMoveHanging &&
+      pMove.postMoveHanging.length > 0
+    ) {
       const h = pMove.postMoveHanging[0];
       body += `<br><br>🚨 Critical vulnerability: your <strong>${PIECE_NAME[h.type]} on ${h.square.toUpperCase()}</strong> is completely hanging!`;
     }
@@ -2104,7 +2196,13 @@ function displayCoachVerdict(verdict, loss, bestMove, before, after) {
     explanation = "Your move has been registered and analyzed.";
   } else {
     const chars = analyzeMoveCharacteristics(playerMove, game);
-    explanation = generateContextualExplanation(verdict, chars, playerMove, bestMove, loss);
+    explanation = generateContextualExplanation(
+      verdict,
+      chars,
+      playerMove,
+      bestMove,
+      loss,
+    );
   }
 
   const tacticalNote = buildTacticalNote();
@@ -2282,11 +2380,7 @@ function makeAIMove() {
 
   configureEngineForOpponent();
 
-  engine.postMessage("stop");
-
-  engine.postMessage(`position fen ${game.fen()}`);
-
-  engine.postMessage(`go depth ${tier.depth}`);
+  requestEngineSearch(game.fen(), tier.depth, "ai");
 
   updateTurn();
 }
@@ -3239,6 +3333,12 @@ if (undoButton) {
 
     analysisStage = null;
 
+    // BUG FIX: same as New Game — don't let a deferred search
+    // fire later against the position we're about to undo to.
+    searchActive = false;
+
+    pendingSearchAfterStop = null;
+
     let wasTraining = false;
 
     if (trainerActive) {
@@ -3315,6 +3415,13 @@ function startNewGame(skipAutoStart) {
   if (engine) {
     engine.postMessage("stop");
   }
+
+  // BUG FIX: cancel any search we were about to re-issue once an
+  // old one stopped — it would otherwise fire against the fresh
+  // position started below.
+  searchActive = false;
+
+  pendingSearchAfterStop = null;
 
   closeDialog(document.getElementById("gameOverModal"));
 
@@ -3400,13 +3507,20 @@ function maybeStartAiFirst() {
 const resetButton = document.getElementById("resetButton");
 
 if (resetButton) {
-  resetButton.addEventListener("click", startNewGame);
+  // BUG FIX: addEventListener passes the click's MouseEvent as the
+  // first argument. startNewGame's first parameter is
+  // skipAutoStart, so that MouseEvent was being treated as a
+  // truthy "skip" flag — meaning the AI would silently never make
+  // its opening move after a manual "New Game" click when you were
+  // playing Black. Wrapping it in an arrow function ensures
+  // startNewGame is always called with no arguments here.
+  resetButton.addEventListener("click", () => startNewGame());
 }
 
 const gameOverNewGameButton = document.getElementById("gameOverNewGame");
 
 if (gameOverNewGameButton) {
-  gameOverNewGameButton.addEventListener("click", startNewGame);
+  gameOverNewGameButton.addEventListener("click", () => startNewGame());
 }
 
 const gameOverReviewButton = document.getElementById("gameOverReview");
@@ -3511,8 +3625,6 @@ if (hintButton) {
 
     engineThinking = true;
 
-    analysisStage = "hint";
-
     deepestDepth = -1;
 
     showCoachMessage(
@@ -3527,11 +3639,7 @@ if (hintButton) {
 
     configureEngineFullStrength();
 
-    engine.postMessage("stop");
-
-    engine.postMessage(`position fen ${game.fen()}`);
-
-    engine.postMessage(`go depth ${ANALYSIS_DEPTH}`);
+    requestEngineSearch(game.fen(), ANALYSIS_DEPTH, "hint");
 
     updateTurn();
   });
